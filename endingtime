@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小三數學：時間尺與結束時間學習工具</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Noto Sans TC', sans-serif;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        html, body {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            background-color: #f1f5f9;
+        }
+
+        .key-btn:active {
+            transform: scale(0.94);
+        }
+
+        .arc-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: dash 0.5s ease-out forwards;
+        }
+
+        @keyframes dash {
+            to { stroke-dashoffset: 0; }
+        }
+
+        .clock-hand {
+            transition: transform 0.5s cubic-bezier(0.4, 2.08, 0.55, 0.44);
+            transform-origin: 50% 50%;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .shake-anim {
+            animation: shake 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen w-screen overflow-hidden text-slate-800 flex flex-col p-2 gap-2">
+
+    <header class="bg-indigo-700 text-white rounded-xl px-3 py-1.5 flex items-center justify-between shrink-0 shadow-sm">
+        <div class="flex items-center space-x-2">
+            <div class="bg-amber-400 text-indigo-950 font-black px-2.5 py-0.5 rounded-lg text-sm shadow">
+                <i class="fa-solid fa-clock-rotate-left mr-1"></i>小三數學
+            </div>
+            <h1 class="text-base font-bold tracking-wide">畫時間尺尋找結束時間</h1>
+        </div>
+
+        <!-- Page Tabs -->
+        <nav class="flex bg-indigo-900/60 p-1 rounded-xl space-x-1">
+            <button onclick="switchTab('explore')" id="tab-explore" class="tab-btn px-3 py-1 rounded-lg text-xs font-bold transition bg-white text-indigo-900 shadow">
+                <i class="fa-solid fa-chalkboard-user mr-1"></i>探究學習
+            </button>
+            <button onclick="switchTab('stage1')" id="tab-stage1" class="tab-btn px-3 py-1 rounded-lg text-xs font-bold transition text-indigo-200 hover:text-white">
+                <i class="fa-solid fa-layer-group mr-1"></i>階段一
+            </button>
+            <button onclick="switchTab('stage2')" id="tab-stage2" class="tab-btn px-3 py-1 rounded-lg text-xs font-bold transition text-indigo-200 hover:text-white">
+                <i class="fa-solid fa-route mr-1"></i>階段二
+            </button>
+            <button onclick="switchTab('stage3')" id="tab-stage3" class="tab-btn px-3 py-1 rounded-lg text-xs font-bold transition text-indigo-200 hover:text-white">
+                <i class="fa-solid fa-train-subway mr-1"></i>階段三
+            </button>
+        </nav>
+
+        <!-- Global Toggle Switches -->
+        <div class="flex items-center space-x-3 text-xs font-semibold">
+            <!-- Hint Switch (Default Off) -->
+            <label class="flex items-center space-x-1.5 cursor-pointer bg-indigo-800/80 px-2.5 py-1 rounded-lg">
+                <input type="checkbox" id="toggle-hint-switch" onchange="toggleHintVisibility()" class="sr-only peer">
+                <span>提示</span>
+                <div class="w-7 h-4 bg-indigo-950 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-400 relative"></div>
+            </label>
+
+            <!-- Clock Switch (Default Off) -->
+            <label class="flex items-center space-x-1.5 cursor-pointer bg-indigo-800/80 px-2.5 py-1 rounded-lg">
+                <input type="checkbox" id="clock-toggle-switch" onchange="toggleClockVisibility()" class="sr-only peer">
+                <span>動態鐘面</span>
+                <div class="w-7 h-4 bg-indigo-950 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-400 relative"></div>
+            </label>
+        </div>
+    </header>
+
+    <main class="flex-1 grid grid-cols-12 gap-2 min-h-0">
+        
+        <!-- Left Column: Problem Header + Timeline + Action Buttons -->
+        <section class="col-span-8 flex flex-col gap-2 min-h-0">
+            
+            <!-- Question Selector & Info Bar -->
+            <div class="bg-white rounded-xl p-2.5 shadow-sm border border-slate-200 shrink-0">
+                <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-2">
+                    <div id="sub-q-container" class="flex items-center gap-1.5 overflow-x-auto">
+                        <!-- Sub-question buttons injected dynamically -->
+                    </div>
+
+                    <div class="flex items-center space-x-1.5">
+                        <button id="btn-refresh-q" onclick="regenerateQuestions()" class="hidden px-2.5 py-1 text-xs font-bold bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition flex items-center space-x-1">
+                            <i class="fa-solid fa-arrows-rotate"></i>
+                            <span>換題</span>
+                        </button>
+                        <button onclick="resetTimeline()" class="px-2.5 py-1 text-xs font-bold bg-rose-100 text-rose-700 rounded-lg hover:bg-rose-200 transition flex items-center space-x-1">
+                            <i class="fa-solid fa-rotate-left"></i>
+                            <span>重來</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Explore Mode Start Time Customizer (All Qs in Explore Mode) -->
+                <div id="explore-starttime-form" class="hidden bg-indigo-50/80 border border-indigo-200 rounded-lg p-2 mb-2 text-xs">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="font-bold text-indigo-900 flex items-center shrink-0">
+                            <i class="fa-solid fa-clock-rotate-left text-indigo-600 mr-1.5"></i>自訂出發時間：
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-1 justify-end">
+                            <select id="exp-start-ampm" onchange="updateExploreStartTime()" class="px-2 py-1 rounded border border-indigo-200 bg-white font-bold text-indigo-900">
+                                <option value="上午">上午</option>
+                                <option value="下午">下午</option>
+                            </select>
+                            <div class="flex items-center space-x-1 bg-white px-2 py-1 rounded border border-indigo-200 font-bold">
+                                <span>時：</span>
+                                <input type="number" id="exp-start-h" value="9" min="1" max="12" onchange="updateExploreStartTime()" class="w-10 text-center font-black text-indigo-900 outline-none">
+                            </div>
+                            <div class="flex items-center space-x-1 bg-white px-2 py-1 rounded border border-indigo-200 font-bold">
+                                <span>分：</span>
+                                <input type="number" id="exp-start-m" value="0" min="0" max="59" onchange="updateExploreStartTime()" class="w-10 text-center font-black text-indigo-900 outline-none">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Question Inputs (Explore Q4 Route & Duration) -->
+                <div id="custom-q-form" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-2 mb-2 text-xs">
+                    <div class="font-bold text-amber-900 mb-1 flex items-center"><i class="fa-solid fa-pen-to-square mr-1"></i>第四題：自訂路線與所需時間</div>
+                    <div class="grid grid-cols-4 gap-2 mb-1.5">
+                        <input type="text" id="cust-start" value="香港" placeholder="起點" class="px-2 py-1 rounded border border-slate-300 bg-white font-medium">
+                        <input type="text" id="cust-end" value="上海" placeholder="終點" class="px-2 py-1 rounded border border-slate-300 bg-white font-medium">
+                        <input type="number" id="cust-h" value="4" min="0" max="15" placeholder="小時" class="px-2 py-1 rounded border border-slate-300 bg-white font-medium">
+                        <input type="number" id="cust-m" value="30" min="0" max="59" placeholder="分鐘" class="px-2 py-1 rounded border border-slate-300 bg-white font-medium">
+                    </div>
+                    <button onclick="applyCustomQuestion()" class="w-full py-1 bg-amber-600 text-white font-bold rounded hover:bg-amber-700 transition text-xs">
+                        套用自訂路線與時間
+                    </button>
+                </div>
+
+                <!-- Question Details -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2.5">
+                        <div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-base">
+                            <i class="fa-solid fa-bus-simple" id="q-icon"></i>
+                        </div>
+                        <div>
+                            <div class="text-[11px] text-slate-500 font-bold" id="q-badge">探究學習 - 第一題</div>
+                            <div class="text-base font-black text-slate-800" id="q-route">九龍 ➔ 福田</div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 bg-slate-50 px-3 py-1 rounded-lg border border-slate-200 text-xs">
+                        <div>出發：<span class="text-slate-900 font-extrabold" id="q-starttime">上午 09:00</span></div>
+                        <div class="h-3 w-px bg-slate-300"></div>
+                        <div>目標時間：<span class="text-indigo-600 font-extrabold" id="q-targetduration">1 小時</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex-1 flex flex-col justify-between min-h-0 relative">
+                
+                <!-- Target Duration Info Bar -->
+                <div class="flex justify-between items-center text-xs font-bold text-slate-500">
+                    <span class="flex items-center text-indigo-700">
+                        <i class="fa-solid fa-ruler-horizontal text-indigo-500 mr-1.5"></i>時間尺（數完一次請在右側輸入時刻並核對）
+                    </span>
+                    <span id="target-info-badge" class="text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                        目標時間：1 小時 0 分鐘
+                    </span>
+                </div>
+
+                <!-- SVG Area -->
+                <div class="w-full flex-1 flex items-center justify-start my-1 overflow-x-auto overflow-y-hidden relative scroll-smooth">
+                    <svg id="timeline-svg" class="h-full min-h-[170px] max-h-[220px]" viewBox="0 0 800 180">
+                        <!-- Dynamic SVG timeline content -->
+                    </svg>
+                </div>
+
+                <!-- Hint/Feedback Banner -->
+                <div id="feedback-banner" class="p-2 rounded-lg bg-slate-50 border border-slate-200 text-center text-xs font-bold text-slate-700 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-circle-info text-blue-500"></i>
+                    <span id="feedback-text">請點擊下方按鈕推進時間！</span>
+                </div>
+            </div>
+
+            <!-- Jump Action Buttons -->
+            <div class="bg-white rounded-xl p-2 shadow-sm border border-slate-200 flex items-center justify-between gap-2 shrink-0">
+                <span class="text-xs font-bold text-slate-500 shrink-0"><i class="fa-solid fa-bolt text-amber-500 mr-1"></i>畫時間尺：</span>
+                <div class="flex items-center gap-1 flex-1 justify-end flex-wrap sm:flex-nowrap">
+                    <button onclick="addStep(1, 0)" id="btn-add-1h" class="px-2 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg font-bold text-xs border border-indigo-200 active:scale-95 transition">
+                        +1 小時
+                    </button>
+                    <button onclick="addStep(2, 0)" id="btn-add-2h" class="px-2 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg font-bold text-xs border border-indigo-200 active:scale-95 transition">
+                        +2 小時
+                    </button>
+                    <button onclick="addStep(3, 0)" id="btn-add-3h" class="px-2 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg font-bold text-xs border border-indigo-200 active:scale-95 transition">
+                        +3 小時
+                    </button>
+                    <button onclick="addStep(0, 30)" id="btn-add-30m" class="px-2 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg font-bold text-xs border border-amber-200 active:scale-95 transition">
+                        +30 分鐘
+                    </button>
+                    <button onclick="addStep(0, 10)" id="btn-add-10m" class="px-2 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg font-bold text-xs border border-amber-200 active:scale-95 transition">
+                        +10 分鐘
+                    </button>
+                    <button onclick="addStep(0, 1)" id="btn-add-1m" class="px-2 py-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 rounded-lg font-bold text-xs border border-amber-200 active:scale-95 transition">
+                        +1 分鐘
+                    </button>
+                    <button onclick="undoStep()" class="px-2 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg font-bold text-xs border border-slate-300 active:scale-95 transition flex items-center space-x-1">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span>撤銷</span>
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="col-span-4 flex flex-col gap-2 min-h-0">
+            
+            <!-- Dynamic Clock Card (Right Side Top) -->
+            <div id="clock-card" class="bg-white rounded-xl p-2.5 shadow-sm border border-slate-200 flex flex-col items-center shrink-0">
+                <div class="w-full flex items-center justify-between mb-1 pb-1 border-b border-slate-100 text-xs font-bold text-slate-700">
+                    <span><i class="fa-solid fa-clock text-indigo-600 mr-1"></i>動態鐘面</span>
+                    <span id="clock-digital-display" class="bg-indigo-900 text-amber-400 font-mono font-black text-xs px-2 py-0.5 rounded shadow-inner">
+                        上午 09:00
+                    </span>
+                </div>
+
+                <!-- Clock Visual (Default Hidden) -->
+                <div id="clock-card-content" class="relative w-28 h-28 my-0.5 hidden">
+                    <svg class="w-full h-full drop-shadow" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="46" fill="#ffffff" stroke="#334155" stroke-width="4"/>
+                        <g stroke="#475569" stroke-width="2" stroke-linecap="round">
+                            <line x1="50" y1="8" x2="50" y2="12" />
+                            <line x1="50" y1="88" x2="50" y2="92" />
+                            <line x1="8" y1="50" x2="12" y2="50" />
+                            <line x1="88" y1="50" x2="92" y2="50" />
+                        </g>
+                        <text x="50" y="21" font-size="8" font-weight="bold" text-anchor="middle" fill="#1e293b">12</text>
+                        <text x="81" y="53" font-size="8" font-weight="bold" text-anchor="middle" fill="#1e293b">3</text>
+                        <text x="50" y="85" font-size="8" font-weight="bold" text-anchor="middle" fill="#1e293b">6</text>
+                        <text x="19" y="53" font-size="8" font-weight="bold" text-anchor="middle" fill="#1e293b">9</text>
+
+                        <line id="hour-hand" x1="50" y1="50" x2="50" y2="28" stroke="#1e293b" stroke-width="3.5" stroke-linecap="round" class="clock-hand" />
+                        <line id="minute-hand" x1="50" y1="50" x2="50" y2="16" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" class="clock-hand" />
+                        <circle cx="50" cy="50" r="3.5" fill="#f59e0b" stroke="#ffffff" stroke-width="1"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Input Keypad Card -->
+            <div class="bg-white rounded-xl p-2.5 shadow-sm border border-slate-200 flex-1 flex flex-col justify-between min-h-0">
+                
+                <div id="verify-input-card">
+                    <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-slate-100">
+                        <span class="text-xs font-extrabold text-indigo-900 flex items-center">
+                            <i class="fa-solid fa-pen-ruler text-amber-500 mr-1.5"></i>輸入到達時刻
+                        </span>
+                        <span id="step-jump-tag" class="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">
+                            等待數時間...
+                        </span>
+                    </div>
+
+                    <!-- Answer Input Box Controls -->
+                    <div id="answer-box-container" class="bg-slate-50 border-2 border-indigo-200 rounded-xl p-2 mb-2">
+                        <!-- AM/PM Toggle Buttons -->
+                        <div class="flex gap-1 mb-1.5">
+                            <button onclick="setStudentAmPm('上午')" id="btn-ampm-am" class="flex-1 py-1 rounded-lg text-xs font-black transition bg-indigo-600 text-white">
+                                上午
+                            </button>
+                            <button onclick="setStudentAmPm('下午')" id="btn-ampm-pm" class="flex-1 py-1 rounded-lg text-xs font-black transition bg-slate-200 text-slate-700">
+                                下午
+                            </button>
+                        </div>
+
+                        <!-- Hours & Minutes Display -->
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <!-- Hours Input -->
+                            <div onclick="setFocusField('h')" id="field-h-box" class="bg-white border-2 border-indigo-500 rounded-lg p-1 text-center cursor-pointer">
+                                <div class="text-[10px] text-slate-400 font-bold">時 (Hour)</div>
+                                <div id="display-input-h" class="text-xl font-black text-indigo-900 font-mono">--</div>
+                            </div>
+
+                            <!-- Minutes Input -->
+                            <div onclick="setFocusField('m')" id="field-m-box" class="bg-white border-2 border-slate-200 rounded-lg p-1 text-center cursor-pointer">
+                                <div class="text-[10px] text-slate-400 font-bold">分 (Minute)</div>
+                                <div id="display-input-m" class="text-xl font-black text-indigo-900 font-mono">--</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- On-screen Keypad -->
+                <div class="grid grid-cols-3 gap-1 my-auto">
+                    <button onclick="pressNum('1')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">1</button>
+                    <button onclick="pressNum('2')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">2</button>
+                    <button onclick="pressNum('3')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">3</button>
+
+                    <button onclick="pressNum('4')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">4</button>
+                    <button onclick="pressNum('5')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">5</button>
+                    <button onclick="pressNum('6')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">6</button>
+
+                    <button onclick="pressNum('7')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">7</button>
+                    <button onclick="pressNum('8')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">8</button>
+                    <button onclick="pressNum('9')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">9</button>
+
+                    <button onclick="clearField()" class="key-btn bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-xs py-1.5 rounded-lg border border-rose-200">清除</button>
+                    <button onclick="pressNum('0')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-lg py-1.5 rounded-lg border border-slate-200">0</button>
+                    <button onclick="pressNum('00')" class="key-btn bg-slate-100 hover:bg-slate-200 text-slate-800 font-black text-xs py-1.5 rounded-lg border border-slate-200">00</button>
+                </div>
+
+                <!-- Submit & Check Answer Button -->
+                <button onclick="verifyStepAnswer()" id="btn-verify-answer" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm rounded-xl shadow border border-emerald-700 flex items-center justify-center space-x-1 shrink-0">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>核對答案</span>
+                </button>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Celebration Praise Modal -->
+    <div id="praise-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl border-4 border-amber-400 transform transition-all">
+            <div class="text-5xl mb-2 animate-bounce">🎉 🌟 👏</div>
+            <h3 class="text-2xl font-black text-indigo-950 mb-1">太棒了！完全正確！</h3>
+            <p id="praise-modal-text" class="text-sm font-bold text-slate-600 mb-5">
+                你成功透過時間尺找到了正確的到達時間！
+            </p>
+            <div class="flex gap-2">
+                <button onclick="closePraiseModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold rounded-xl text-xs transition">
+                    再看一次
+                </button>
+                <button onclick="nextQuestionFromModal()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-xs transition shadow-md">
+                    挑戰下一題 <i class="fa-solid fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State Variables
+        let currentTab = 'explore';
+        let currentSubIndex = 0;
+        let currentQuestion = null;
+
+        // Steps array containing: { hours, mins, verified, userAmPm, userH, userM }
+        let timelineSteps = [];
+
+        // Active Student Input State
+        let currentAmPm = '上午';
+        let currentInputH = '';
+        let currentInputM = '';
+        let activeFocusField = 'h'; // 'h' or 'm'
+
+        // Display Toggles (Default Off)
+        let showClock = false;
+        let showHint = false;
+
+        // Explore Questions
+        const exploreQuestions = [
+            {
+                id: 'e1',
+                title: '第一題',
+                route: '香港西九龍 ➔ 福田 (直通巴士)',
+                icon: 'fa-bus',
+                targetH: 1, targetM: 0,
+                startH: 9, startM: 0, ampm: '上午'
+            },
+            {
+                id: 'e2',
+                title: '第二題',
+                route: '香港西九龍 ➔ 福田 (東鐵+深圳公交)',
+                icon: 'fa-train-subway',
+                targetH: 2, targetM: 0,
+                startH: 10, startM: 15, ampm: '上午'
+            },
+            {
+                id: 'e3',
+                title: '第三題',
+                route: '九龍 ➔ 廣州 (直通巴士)',
+                icon: 'fa-bus-simple',
+                targetH: 3, targetM: 30,
+                startH: 11, startM: 20, ampm: '上午'
+            },
+            {
+                id: 'e4',
+                title: '第四題 (自訂)',
+                route: '自訂路線',
+                icon: 'fa-pen-to-square',
+                targetH: 4, targetM: 30,
+                startH: 8, startM: 45, ampm: '上午',
+                isCustom: true
+            }
+        ];
+
+        // Stage Questions Storage
+        let stage1Questions = [];
+        let stage2Questions = [];
+        let stage3Questions = [];
+
+        // Helper function for random pick
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function generateStageQuestions(tabKey) {
+            const list = [];
+            const minuteOptions = [0, 5, 12, 15, 18, 20, 25, 30, 35, 40, 42, 45, 50, 55];
+
+            if (tabKey === 'stage1') {
+                const routes = [
+                    { name: '九龍 ➔ 廣州 (高鐵)', h: 2, m: 0 },
+                    { name: '九龍 ➔ 潮汕 (高鐵)', h: 3, m: 0 },
+                    { name: '九龍 ➔ 廈門 (高鐵)', h: 4, m: 0 },
+                    { name: '九龍 ➔ 武漢 (高鐵)', h: 5, m: 0 }
+                ];
+                routes.forEach((r, idx) => {
+                    const isAm = Math.random() > 0.3;
+                    let startH;
+                    if (isAm) {
+                        const maxStartH = 11 - r.h;
+                        const minStartH = 6;
+                        startH = getRandomInt(minStartH, Math.max(minStartH, maxStartH));
+                    } else {
+                        const maxStartH = 11 - r.h;
+                        const minStartH = 1;
+                        startH = getRandomInt(minStartH, Math.max(minStartH, maxStartH));
+                    }
+                    const startM = 0;
+                    list.push({
+                        id: `s1_${idx}`,
+                        title: idx === 3 ? '第 4 題 (挑戰)' : `第 ${idx + 1} 題`,
+                        route: r.name,
+                        icon: 'fa-train-subway',
+                        targetH: r.h, targetM: 0,
+                        startH: startH, startM: startM, ampm: isAm ? '上午' : '下午'
+                    });
+                });
+            } else if (tabKey === 'stage2') {
+                const routes = [
+                    { name: '九龍 ➔ 桂林 (高鐵)', h: 3, m: 0 },
+                    { name: '九龍 ➔ 武漢 (高鐵)', h: 4, m: 0 },
+                    { name: '九龍 ➔ 長沙 (高鐵)', h: 3, m: 0 },
+                    { name: '九龍 ➔ 鄭州 (高鐵)', h: 5, m: 0 }
+                ];
+                routes.forEach((r, idx) => {
+                    const minStartH = Math.max(8, 13 - r.h);
+                    const maxStartH = 11;
+                    const startH = getRandomInt(minStartH, maxStartH);
+                    const startM = 0;
+
+                    list.push({
+                        id: `s2_${idx}`,
+                        title: idx === 3 ? '第 4 題 (挑戰)' : `第 ${idx + 1} 題`,
+                        route: r.name,
+                        icon: 'fa-train-subway',
+                        targetH: r.h,
+                        targetM: 0,
+                        startH: startH,
+                        startM: startM,
+                        ampm: '上午'
+                    });
+                });
+            } else if (tabKey === 'stage3') {
+                const routes = [
+                    { name: '香港 ➔ 北京 (高鐵)', h: 8, m: 11 },
+                    { name: '香港 ➔ 上海 (高鐵)', h: 7, m: 45 },
+                    { name: '香港 ➔ 天津 (高鐵)', h: 9, m: 20 },
+                    { name: '香港 ➔ 哈爾濱 (挑戰題)', h: 10, m: 15 }
+                ];
+                routes.forEach((r, idx) => {
+                    const isAm = Math.random() > 0.2;
+                    const startH = isAm ? getRandomInt(6, 9) : getRandomInt(1, 2);
+                    const startM = minuteOptions[getRandomInt(0, minuteOptions.length - 1)];
+                    list.push({
+                        id: `s3_${idx}`,
+                        title: idx === 3 ? '第 4 題 (挑戰)' : `第 ${idx + 1} 題`,
+                        route: r.name,
+                        icon: 'fa-train-subway',
+                        targetH: r.h, targetM: r.m,
+                        startH: startH, startM: startM, ampm: isAm ? '上午' : '下午'
+                    });
+                });
+            }
+            return list;
+        }
+
+        function renderSubQuestionButtons() {
+            const container = document.getElementById('sub-q-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            let list = exploreQuestions;
+            if (currentTab === 'stage1') list = stage1Questions;
+            else if (currentTab === 'stage2') list = stage2Questions;
+            else if (currentTab === 'stage3') list = stage3Questions;
+
+            list.forEach((q, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                    idx === currentSubIndex
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`;
+                btn.innerText = q.title;
+                btn.onclick = () => {
+                    currentSubIndex = idx;
+                    renderSubQuestionButtons();
+                    loadCurrentQuestion();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function switchTab(tabKey) {
+            currentTab = tabKey;
+            currentSubIndex = 0;
+
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-white', 'text-indigo-900', 'shadow');
+                btn.classList.add('text-indigo-200', 'hover:text-white');
+            });
+            const activeBtn = document.getElementById(`tab-${tabKey}`);
+            if (activeBtn) {
+                activeBtn.classList.remove('text-indigo-200', 'hover:text-white');
+                activeBtn.classList.add('bg-white', 'text-indigo-900', 'shadow');
+            }
+
+            const refreshBtn = document.getElementById('btn-refresh-q');
+            if (tabKey === 'explore') refreshBtn.classList.add('hidden');
+            else refreshBtn.classList.remove('hidden');
+
+            renderSubQuestionButtons();
+            loadCurrentQuestion();
+        }
+
+        function regenerateQuestions() {
+            if (currentTab === 'stage1') stage1Questions = generateStageQuestions('stage1');
+            else if (currentTab === 'stage2') stage2Questions = generateStageQuestions('stage2');
+            else if (currentTab === 'stage3') stage3Questions = generateStageQuestions('stage3');
+            renderSubQuestionButtons();
+            loadCurrentQuestion();
+        }
+
+        function loadCurrentQuestion() {
+            let list = exploreQuestions;
+            if (currentTab === 'stage1') list = stage1Questions;
+            else if (currentTab === 'stage2') list = stage2Questions;
+            else if (currentTab === 'stage3') list = stage3Questions;
+
+            if (!list || list.length === 0) return;
+            if (currentSubIndex >= list.length) currentSubIndex = 0;
+
+            currentQuestion = list[currentSubIndex];
+            if (!currentQuestion) return;
+
+            timelineSteps = [];
+
+            // UI Header Labels
+            document.getElementById('q-badge').innerText = `${getTabName(currentTab)} - ${currentQuestion.title}`;
+            document.getElementById('q-route').innerText = currentQuestion.route;
+            document.getElementById('q-icon').className = `fa-solid ${currentQuestion.icon}`;
+            document.getElementById('q-starttime').innerText = formatTimeHK(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm);
+            document.getElementById('q-targetduration').innerText = formatDurationHK(currentQuestion.targetH, currentQuestion.targetM);
+
+            document.getElementById('target-info-badge').innerText = `目標時間：${formatDurationHK(currentQuestion.targetH, currentQuestion.targetM)}`;
+
+            // Explore Start Time Picker visibility
+            const expForm = document.getElementById('explore-starttime-form');
+            if (currentTab === 'explore') {
+                expForm.classList.remove('hidden');
+                document.getElementById('exp-start-ampm').value = currentQuestion.ampm;
+                document.getElementById('exp-start-h').value = currentQuestion.startH;
+                document.getElementById('exp-start-m').value = currentQuestion.startM;
+            } else {
+                expForm.classList.add('hidden');
+            }
+
+            // Custom Q Form (Route & Duration for Explore Q4)
+            const customForm = document.getElementById('custom-q-form');
+            if (currentTab === 'explore' && currentQuestion.isCustom) customForm.classList.remove('hidden');
+            else customForm.classList.add('hidden');
+
+            resetInputControls();
+            renderTimelineSVG();
+            updateClockDisplay(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm);
+        }
+
+        function updateExploreStartTime() {
+            if (currentTab !== 'explore' || !currentQuestion) return;
+
+            const ampm = document.getElementById('exp-start-ampm').value;
+            let h = parseInt(document.getElementById('exp-start-h').value) || 12;
+            let m = parseInt(document.getElementById('exp-start-m').value) || 0;
+
+            if (h < 1) h = 1;
+            if (h > 12) h = 12;
+            if (m < 0) m = 0;
+            if (m > 59) m = 59;
+
+            currentQuestion.ampm = ampm;
+            currentQuestion.startH = h;
+            currentQuestion.startM = m;
+
+            document.getElementById('q-starttime').innerText = formatTimeHK(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm);
+            timelineSteps = [];
+            resetInputControls();
+            renderTimelineSVG();
+            updateClockDisplay(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm);
+        }
+
+        function applyCustomQuestion() {
+            if (!currentQuestion) return;
+            const startName = document.getElementById('cust-start').value || "香港";
+            const endName = document.getElementById('cust-end').value || "終點";
+            const h = parseInt(document.getElementById('cust-h').value) || 0;
+            const m = parseInt(document.getElementById('cust-m').value) || 0;
+
+            if (h === 0 && m === 0) return;
+
+            currentQuestion.route = `${startName} ➔ ${endName}`;
+            currentQuestion.targetH = h;
+            currentQuestion.targetM = m;
+
+            loadCurrentQuestion();
+        }
+
+        function getTabName(key) {
+            if (key === 'explore') return '探究學習';
+            if (key === 'stage1') return '階段一';
+            if (key === 'stage2') return '階段二';
+            if (key === 'stage3') return '階段三';
+            return '';
+        }
+
+        // Time calculations with null-safety
+        function getTargetMinutes() {
+            if (!currentQuestion) return 0;
+            return ((currentQuestion.targetH || 0) * 60) + (currentQuestion.targetM || 0);
+        }
+
+        function calculateTimeAfterOffset(startH, startM, ampm, minsOffset) {
+            let h24 = startH;
+            if (ampm === "下午" && h24 !== 12) h24 += 12;
+            if (ampm === "上午" && h24 === 12) h24 = 0;
+
+            let totalM = h24 * 60 + startM + minsOffset;
+            let finalH24 = Math.floor(totalM / 60) % 24;
+            let finalM = totalM % 60;
+
+            let finalAmpm = finalH24 >= 12 ? "下午" : "上午";
+            let finalH12 = finalH24 % 12;
+            if (finalH12 === 0) finalH12 = 12;
+
+            return { h: finalH12, m: finalM, ampm: finalAmpm };
+        }
+
+        function formatTimeHK(h, m, ampm) {
+            const mStr = String(m).padStart(2, '0');
+            const hStr = String(h).padStart(2, '0');
+            return `${ampm} ${hStr}:${mStr}`;
+        }
+
+        function formatDurationHK(h, m) {
+            let str = "";
+            if (h > 0) str += `${h} 小時 `;
+            if (m > 0 || h === 0) str += `${m} 分鐘`;
+            return str.trim();
+        }
+
+        function getVerifiedCumulativeMinutes() {
+            let sum = 0;
+            for (let step of timelineSteps) {
+                if (step.verified) sum += (step.hours * 60) + step.mins;
+                else break;
+            }
+            return sum;
+        }
+
+        function renderTimelineSVG() {
+            const svg = document.getElementById('timeline-svg');
+            if (!svg || !currentQuestion) return;
+            svg.innerHTML = '';
+
+            const totalTargetMins = getTargetMinutes();
+            const startX = 60;
+            const lineY = 115;
+
+            // 計算動態寬度，確保階段二和階段三時間較長或步驟較多時有足夠顯示空間
+            let currentWidth = startX;
+            const stepPositions = [];
+
+            timelineSteps.forEach((step) => {
+                const stepMins = (step.hours * 60) + step.mins;
+                const proportionalWidth = totalTargetMins > 0 ? (stepMins / totalTargetMins) * 680 : 90;
+                // 每個步驟至少保留 85px 寬度，避免文字重疊
+                const stepWidth = Math.max(85, proportionalWidth);
+                const prevX = currentWidth;
+                currentWidth += stepWidth;
+                stepPositions.push({
+                    step,
+                    stepMins,
+                    startX: prevX,
+                    endX: currentWidth
+                });
+            });
+
+            const totalSvgWidth = Math.max(800, currentWidth + 80);
+            const endX = currentWidth;
+
+            svg.setAttribute("viewBox", `0 0 ${totalSvgWidth} 180`);
+            svg.style.width = `${totalSvgWidth}px`;
+            svg.style.minWidth = `${totalSvgWidth}px`;
+
+            // Base timeline line
+            const baseLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            baseLine.setAttribute("x1", startX - 20);
+            baseLine.setAttribute("y1", lineY);
+            baseLine.setAttribute("x2", Math.max(totalSvgWidth - 20, endX + 40));
+            baseLine.setAttribute("y2", lineY);
+            baseLine.setAttribute("stroke", "#64748b");
+            baseLine.setAttribute("stroke-width", "4");
+            baseLine.setAttribute("stroke-linecap", "round");
+            svg.appendChild(baseLine);
+
+            // Start Tick
+            drawTick(svg, startX, lineY, formatTimeHK(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm), "起點", true, true);
+
+            let currentAccumulatedMins = 0;
+
+            stepPositions.forEach((item) => {
+                const step = item.step;
+                currentAccumulatedMins += item.stepMins;
+
+                let labelText = "";
+                if (step.hours > 0 && step.mins > 0) labelText = `+${step.hours}小時${step.mins}分`;
+                else if (step.hours > 0) labelText = `+${step.hours}小時`;
+                else labelText = `+${step.mins}分鐘`;
+
+                // Draw Jump Arc
+                drawArc(svg, item.startX, item.endX, lineY, labelText, !step.verified);
+
+                if (step.verified) {
+                    const res = calculateTimeAfterOffset(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm, currentAccumulatedMins);
+                    drawTick(svg, item.endX, lineY, formatTimeHK(res.h, res.m, res.ampm), "", false, true);
+                } else {
+                    // Unverified step
+                    drawTick(svg, item.endX, lineY, "？時 ？分", "", false, false);
+                }
+            });
+
+            // Update Clock to Latest Verified Time
+            const verifiedMins = getVerifiedCumulativeMinutes();
+            const latestVerifiedTime = calculateTimeAfterOffset(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm, verifiedMins);
+            updateClockDisplay(latestVerifiedTime.h, latestVerifiedTime.m, latestVerifiedTime.ampm);
+
+            updateFeedbackMessage();
+            updateJumpButtonsState();
+
+            // 自動將時間尺平滑滾動至最新繪製的步驟位置
+            const container = svg.parentElement;
+            if (container) {
+                setTimeout(() => {
+                    container.scrollLeft = container.scrollWidth;
+                }, 50);
+            }
+        }
+
+        function drawTick(svg, x, y, timeLabel, topLabel = "", isStart = false, isVerified = true) {
+            const tick = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            tick.setAttribute("x1", x);
+            tick.setAttribute("y1", y - 10);
+            tick.setAttribute("x2", x);
+            tick.setAttribute("y2", y + 10);
+            tick.setAttribute("stroke", isStart ? "#2563eb" : (isVerified ? "#0f172a" : "#f59e0b"));
+            tick.setAttribute("stroke-width", "3.5");
+            tick.setAttribute("stroke-linecap", "round");
+            svg.appendChild(tick);
+
+            // Time Label Below Line
+            const textBelow = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            textBelow.setAttribute("x", x);
+            textBelow.setAttribute("y", y + 32);
+            textBelow.setAttribute("text-anchor", "middle");
+            textBelow.setAttribute("font-size", "14");
+            textBelow.setAttribute("font-weight", "900");
+            textBelow.setAttribute("fill", isVerified ? (isStart ? "#1e40af" : "#0f172a") : "#d97706");
+            textBelow.textContent = timeLabel;
+            svg.appendChild(textBelow);
+
+            if (topLabel) {
+                const textTop = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                textTop.setAttribute("x", x);
+                textTop.setAttribute("y", y - 18);
+                textTop.setAttribute("text-anchor", "middle");
+                textTop.setAttribute("font-size", "12");
+                textTop.setAttribute("font-weight", "bold");
+                textTop.setAttribute("fill", "#64748b");
+                textTop.textContent = topLabel;
+                svg.appendChild(textTop);
+            }
+        }
+
+        function drawArc(svg, x1, x2, y, labelText, isPending = false) {
+            const rx = (x2 - x1) / 2;
+            const ry = Math.min(42, Math.max(22, rx * 0.75));
+
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", `M ${x1} ${y - 10} A ${rx} ${ry} 0 0 1 ${x2} ${y - 10}`);
+            path.setAttribute("fill", "none");
+            path.setAttribute("stroke", isPending ? "#f59e0b" : "#3b82f6");
+            path.setAttribute("stroke-width", "3.5");
+            path.setAttribute("stroke-linecap", "round");
+            path.setAttribute("class", "arc-path");
+            svg.appendChild(path);
+
+            const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            text.setAttribute("x", (x1 + x2) / 2);
+            text.setAttribute("y", y - ry - 12);
+            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("font-size", "14");
+            text.setAttribute("font-weight", "900");
+            text.setAttribute("fill", isPending ? "#d97706" : "#1d4ed8");
+            text.textContent = labelText;
+            svg.appendChild(text);
+        }
+
+        function addStep(h, m) {
+            const pending = timelineSteps.find(s => !s.verified);
+            if (pending) {
+                highlightPendingWarning();
+                return;
+            }
+
+            timelineSteps.push({
+                hours: h,
+                mins: m,
+                verified: false
+            });
+
+            resetInputControls();
+            renderTimelineSVG();
+        }
+
+        function undoStep() {
+            if (timelineSteps.length > 0) {
+                timelineSteps.pop();
+                resetInputControls();
+                renderTimelineSVG();
+            }
+        }
+
+        function resetTimeline() {
+            timelineSteps = [];
+            resetInputControls();
+            renderTimelineSVG();
+        }
+
+        function updateJumpButtonsState() {
+            const hasPending = timelineSteps.some(s => !s.verified);
+            const verifiedMins = getVerifiedCumulativeMinutes();
+            const targetMins = getTargetMinutes();
+
+            const isDone = (verifiedMins >= targetMins);
+
+            ['btn-add-1h', 'btn-add-2h', 'btn-add-3h', 'btn-add-30m', 'btn-add-10m', 'btn-add-1m'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    if (hasPending || isDone) {
+                        btn.classList.add('opacity-40', 'pointer-events-none');
+                    } else {
+                        btn.classList.remove('opacity-40', 'pointer-events-none');
+                    }
+                }
+            });
+        }
+
+        function highlightPendingWarning() {
+            const box = document.getElementById('answer-box-container');
+            if (!box) return;
+            box.classList.add('shake-anim', 'border-amber-500');
+            setTimeout(() => {
+                box.classList.remove('shake-anim', 'border-amber-500');
+            }, 500);
+        }
+
+        function resetInputControls() {
+            currentAmPm = '上午';
+            currentInputH = '';
+            currentInputM = '';
+            activeFocusField = 'h';
+            updateInputDisplayUI();
+
+            const pendingIdx = timelineSteps.findIndex(s => !s.verified);
+            const tag = document.getElementById('step-jump-tag');
+            const verifyBtn = document.getElementById('btn-verify-answer');
+
+            if (pendingIdx !== -1) {
+                const step = timelineSteps[pendingIdx];
+                let text = "";
+                if (step.hours > 0 && step.mins > 0) text = `第 ${pendingIdx + 1} 步 (+${step.hours}小時${step.mins}分)`;
+                else if (step.hours > 0) text = `第 ${pendingIdx + 1} 步 (+${step.hours}小時)`;
+                else text = `第 ${pendingIdx + 1} 步 (+${step.mins}分鐘)`;
+
+                if (tag) {
+                    tag.innerText = text;
+                    tag.className = "text-[11px] font-extrabold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300";
+                }
+                if (verifyBtn) verifyBtn.classList.remove('opacity-40', 'pointer-events-none');
+            } else {
+                if (tag) {
+                    tag.innerText = "請點擊上方 +小時 或 +分鐘";
+                    tag.className = "text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500";
+                }
+                if (verifyBtn) verifyBtn.classList.add('opacity-40', 'pointer-events-none');
+            }
+        }
+
+        function setStudentAmPm(ampm) {
+            currentAmPm = ampm;
+            updateInputDisplayUI();
+        }
+
+        function setFocusField(field) {
+            activeFocusField = field;
+            updateInputDisplayUI();
+        }
+
+        function pressNum(digit) {
+            const pendingIdx = timelineSteps.findIndex(s => !s.verified);
+            if (pendingIdx === -1) return;
+
+            if (activeFocusField === 'h') {
+                if (digit === '00') currentInputH = '0';
+                else if (currentInputH.length < 2) currentInputH += digit;
+                if (parseInt(currentInputH) > 12) currentInputH = "12";
+            } else {
+                if (digit === '00') currentInputM = '00';
+                else if (currentInputM.length < 2) currentInputM += digit;
+                if (parseInt(currentInputM) > 59) currentInputM = "59";
+            }
+            updateInputDisplayUI();
+        }
+
+        function clearField() {
+            if (activeFocusField === 'h') currentInputH = '';
+            else currentInputM = '';
+            updateInputDisplayUI();
+        }
+
+        function updateInputDisplayUI() {
+            const btnAM = document.getElementById('btn-ampm-am');
+            const btnPM = document.getElementById('btn-ampm-pm');
+            if (btnAM && btnPM) {
+                if (currentAmPm === '上午') {
+                    btnAM.className = "flex-1 py-1 rounded-lg text-xs font-black transition bg-indigo-600 text-white shadow";
+                    btnPM.className = "flex-1 py-1 rounded-lg text-xs font-black transition bg-slate-200 text-slate-700";
+                } else {
+                    btnPM.className = "flex-1 py-1 rounded-lg text-xs font-black transition bg-indigo-600 text-white shadow";
+                    btnAM.className = "flex-1 py-1 rounded-lg text-xs font-black transition bg-slate-200 text-slate-700";
+                }
+            }
+
+            const boxH = document.getElementById('field-h-box');
+            const boxM = document.getElementById('field-m-box');
+            if (boxH && boxM) {
+                if (activeFocusField === 'h') {
+                    boxH.className = "bg-white border-2 border-indigo-500 rounded-lg p-1 text-center cursor-pointer shadow-sm";
+                    boxM.className = "bg-white border-2 border-slate-200 rounded-lg p-1 text-center cursor-pointer";
+                } else {
+                    boxM.className = "bg-white border-2 border-indigo-500 rounded-lg p-1 text-center cursor-pointer shadow-sm";
+                    boxH.className = "bg-white border-2 border-slate-200 rounded-lg p-1 text-center cursor-pointer";
+                }
+            }
+
+            const displayH = document.getElementById('display-input-h');
+            const displayM = document.getElementById('display-input-m');
+            if (displayH) displayH.innerText = currentInputH || "--";
+            if (displayM) displayM.innerText = currentInputM !== '' ? String(currentInputM).padStart(2, '0') : "--";
+        }
+
+        // Play victory chime using Web Audio API
+        function playVictorySound() {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                
+                const notes = [
+                    { freq: 523.25, time: 0.0, duration: 0.12 }, // C5
+                    { freq: 659.25, time: 0.12, duration: 0.12 }, // E5
+                    { freq: 783.99, time: 0.24, duration: 0.12 }, // G5
+                    { freq: 1046.50, time: 0.36, duration: 0.35 }  // C6
+                ];
+
+                notes.forEach(note => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = note.freq;
+                    
+                    gain.gain.setValueAtTime(0.25, ctx.currentTime + note.time);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + note.time + note.duration);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    
+                    osc.start(ctx.currentTime + note.time);
+                    osc.stop(ctx.currentTime + note.time + note.duration);
+                });
+            } catch(e) {
+                console.log("Audio play error", e);
+            }
+        }
+
+        function showPraiseModal() {
+            const modal = document.getElementById('praise-modal');
+            const text = document.getElementById('praise-modal-text');
+            if (currentQuestion) {
+                const verifiedMins = getVerifiedCumulativeMinutes();
+                const finishTime = calculateTimeAfterOffset(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm, verifiedMins);
+                const formatted = formatTimeHK(finishTime.h, finishTime.m, finishTime.ampm);
+                if (text) {
+                    text.innerHTML = `太棒了！你順利畫出時間尺，算出到達時間是 <span class="text-indigo-700 font-black">${formatted}</span>！`;
+                }
+            }
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closePraiseModal() {
+            const modal = document.getElementById('praise-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function nextQuestionFromModal() {
+            closePraiseModal();
+            let list = exploreQuestions;
+            if (currentTab === 'stage1') list = stage1Questions;
+            else if (currentTab === 'stage2') list = stage2Questions;
+            else if (currentTab === 'stage3') list = stage3Questions;
+
+            if (currentSubIndex < list.length - 1) {
+                currentSubIndex++;
+            } else {
+                currentSubIndex = 0;
+            }
+            renderSubQuestionButtons();
+            loadCurrentQuestion();
+        }
+
+        function verifyStepAnswer() {
+            if (!currentQuestion) return;
+            const pendingIdx = timelineSteps.findIndex(s => !s.verified);
+            if (pendingIdx === -1) return;
+
+            const inputH = parseInt(currentInputH);
+            const inputM = currentInputM === '' ? 0 : parseInt(currentInputM);
+
+            if (isNaN(inputH)) {
+                highlightPendingWarning();
+                return;
+            }
+
+            let totalMinsUpToStep = 0;
+            for (let i = 0; i <= pendingIdx; i++) {
+                totalMinsUpToStep += (timelineSteps[i].hours * 60) + timelineSteps[i].mins;
+            }
+
+            const expected = calculateTimeAfterOffset(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm, totalMinsUpToStep);
+
+            if (currentAmPm === expected.ampm && inputH === expected.h && inputM === expected.m) {
+                timelineSteps[pendingIdx].verified = true;
+                resetInputControls();
+                renderTimelineSVG();
+
+                // 檢查是否已達到最終目標到達時間
+                const verifiedMins = getVerifiedCumulativeMinutes();
+                const targetMins = getTargetMinutes();
+                if (verifiedMins === targetMins && targetMins > 0) {
+                    playVictorySound();
+                    setTimeout(() => {
+                        showPraiseModal();
+                    }, 200);
+                }
+            } else {
+                const container = document.getElementById('answer-box-container');
+                if (container) container.classList.add('shake-anim', 'border-rose-500');
+                
+                const banner = document.getElementById('feedback-banner');
+                const text = document.getElementById('feedback-text');
+                if (banner && text) {
+                    banner.className = "p-2 rounded-lg bg-rose-100 border border-rose-300 text-center text-xs font-bold text-rose-900";
+                    text.innerHTML = `<i class="fa-solid fa-circle-xmark text-rose-600"></i><span>計算不正確喔！請再仔細數數看時間是多少。</span>`;
+                }
+
+                setTimeout(() => {
+                    if (container) container.classList.remove('shake-anim', 'border-rose-500');
+                }, 500);
+            }
+        }
+
+        function updateFeedbackMessage() {
+            const banner = document.getElementById('feedback-banner');
+            const text = document.getElementById('feedback-text');
+
+            if (!banner || !text || !currentQuestion) return;
+
+            const verifiedMins = getVerifiedCumulativeMinutes();
+            const targetMins = getTargetMinutes();
+            const pending = timelineSteps.find(s => !s.verified);
+
+            const latestTime = calculateTimeAfterOffset(currentQuestion.startH, currentQuestion.startM, currentQuestion.ampm, verifiedMins);
+            const formattedTime = formatTimeHK(latestTime.h, latestTime.m, latestTime.ampm);
+
+            if (verifiedMins === targetMins && !pending && targetMins > 0) {
+                banner.className = "p-2 rounded-lg bg-emerald-100 border border-emerald-300 text-center text-xs font-extrabold text-emerald-900";
+                text.innerHTML = `<i class="fa-solid fa-trophy text-amber-500 text-sm"></i><span>恭喜！成功找到結束時間是：<span class="text-indigo-900 font-black underline">${formattedTime}</span> 🎉</span>`;
+            } else if (pending) {
+                banner.className = "p-2 rounded-lg bg-amber-50 border border-amber-200 text-center text-xs font-bold text-amber-900";
+                text.innerHTML = `<i class="fa-solid fa-lightbulb text-amber-500"></i><span>請在右側選擇「上午/下午」並輸入時和分，再按「核對答案」！</span>`;
+            } else if (verifiedMins > targetMins) {
+                banner.className = "p-2 rounded-lg bg-rose-100 border border-rose-300 text-center text-xs font-bold text-rose-900";
+                text.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-600"></i><span>小心！已超越目標時間，請按「撤銷」修正。</span>`;
+            } else {
+                banner.className = "p-2 rounded-lg bg-indigo-50 border border-indigo-200 text-center text-xs font-semibold text-indigo-900";
+                if (showHint) {
+                    const remMins = targetMins - verifiedMins;
+                    const remH = Math.floor(remMins / 60);
+                    const remM = remMins % 60;
+                    text.innerHTML = `<i class="fa-solid fa-clock text-indigo-500"></i><span>目前時刻：<span class="font-bold text-slate-800">${formattedTime}</span>（距離到達還需加 <span class="font-extrabold text-amber-700">${formatDurationHK(remH, remM)}</span>）</span>`;
+                } else {
+                    text.innerHTML = `<i class="fa-solid fa-clock text-indigo-500"></i><span>目前時刻：<span class="font-bold text-slate-800">${formattedTime}</span>（提示已隱藏）</span>`;
+                }
+            }
+        }
+
+        function toggleClockVisibility() {
+            const clockSwitch = document.getElementById('clock-toggle-switch');
+            if (clockSwitch) showClock = clockSwitch.checked;
+            const content = document.getElementById('clock-card-content');
+            if (content) {
+                if (showClock) content.classList.remove('hidden');
+                else content.classList.add('hidden');
+            }
+        }
+
+        function toggleHintVisibility() {
+            const hintSwitch = document.getElementById('toggle-hint-switch');
+            if (hintSwitch) showHint = hintSwitch.checked;
+            updateFeedbackMessage();
+        }
+
+        function updateClockDisplay(h, m, ampm) {
+            const digital = document.getElementById('clock-digital-display');
+            if (digital) digital.innerText = formatTimeHK(h, m, ampm);
+
+            const minDeg = (m / 60) * 360;
+            const hourDeg = ((h % 12) / 12) * 360 + (m / 60) * 30;
+
+            const hourHand = document.getElementById('hour-hand');
+            const minHand = document.getElementById('minute-hand');
+
+            if (hourHand) hourHand.setAttribute('transform', `rotate(${hourDeg}, 50, 50)`);
+            if (minHand) minHand.setAttribute('transform', `rotate(${minDeg}, 50, 50)`);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            stage1Questions = generateStageQuestions('stage1');
+            stage2Questions = generateStageQuestions('stage2');
+            stage3Questions = generateStageQuestions('stage3');
+            switchTab('explore');
+        });
+    </script>
+</body>
+</html>
